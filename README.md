@@ -6,6 +6,7 @@ Treasure Collector 3D Game
 ### Clone the repo
 Copy and paste onto terminal
 ```bash
+https://github.com/kalyanivalath/CS4053-Final-GraphicsProject.git
 ```
 
 ## Team Git Workflow
