@@ -1,312 +1,393 @@
 <!DOCTYPE html>
-    <head>
-        <title>WebGL Class</title>
-    </head>
-    <script src="WebGL.js"></script>
-    <script src="Functions.js"></script>
-    <script src="Classes.js"></script>
-    <script src="Objects.js"></script>
-    <body>
-        <canvas id="example" tabindex="0" width="640" height="480" style="border:5px solid black;"></canvas>
-        <script id="vertex-shader" type="x-shader/x-vertex">
-            #version 300 es                               // GLSL ES 3.00
-            in vec3 coordinates;                          // Vertex position
-            in vec2 textureCoordinates;                   // Texture coordinates
-            in vec3 normal;                               // Vertex normal
-            in vec3 tangent;                              // Vertex tangent
-            in vec3 bitangent;                            // Vertex bitangent
-		    out vec2 vtextureCoordinates;                 // Texture coordinates out
-            out vec3 vCubeMapCoordinates;                 // Cubemap coordinates out
-            out vec3 vWorldPosition;                      // World position out
-            out vec3 vWorldNormal;                        // World normal out
-            out vec3 vWorldTangent;                       // World tangent out
-            out vec3 vWorldBitangent;                     // World bitangent out
-            uniform mat4 uScale;                          // Scale matrix uniform
-            uniform mat4 uTranslate;                      // Translate matrix uniform
-            uniform mat4 uXRotate;                        // X rotation matrix uniform
-            uniform mat4 uYRotate;                        // Y rotation matrix uniform
-            uniform mat4 uZRotate;                        // Z rotation matrix uniform
-            uniform mat4 uP_Matrix;                       // Projection matrix uniform
-            uniform mat4 uView_matrix;                    // View matrix uniform
-            void main(){                                  
-                vtextureCoordinates = textureCoordinates; // Pass texture coordinates
-                vCubeMapCoordinates = coordinates;        // Pass cubemap coordinates
-                mat4 uRotate = uZRotate * uYRotate * uXRotate;      // Combined rotation matrix
-                mat4 modelMatrix = uTranslate * uRotate * uScale;   // Model matrix
-                vec4 worldPosition = modelMatrix * vec4(coordinates, 1.0); // World position
-                vWorldPosition = worldPosition.xyz;      // Store world position
-                vWorldNormal = mat3(uRotate) * normal;   // Store world normal
-                vWorldTangent = mat3(uRotate) * tangent; // Store world tangent
-                vWorldBitangent = mat3(uRotate) * bitangent; // Store world bitangent
-                mat4 VPMatrix = uP_Matrix * uView_matrix;            // View projection matrix
-                mat4 MVPMatrix = VPMatrix * modelMatrix;             // Model view projection matrix
-                gl_Position = MVPMatrix * vec4(coordinates, 1.0);    // Final Clip-space position
-            }                                             
-        
-            </script>
-            <script id="fragment-shader" type="x-shader/x-fragment">
-                #version 300 es                                      // GLSL ES 3.00
-                precision mediump float;                             // Float precision
-                in vec2 vtextureCoordinates;                         // Texture coordinates in
-                in vec3 vCubeMapCoordinates;                         // Cubemap coordinates in
-                in vec3 vWorldPosition;                              // World position in
-                in vec3 vWorldNormal;                                // World normal in
-                in vec3 vWorldTangent;                               // World tangent in
-                in vec3 vWorldBitangent;                             // World bitangent in
-                uniform sampler2D uTexture;                          // 2D texture sampler
-                uniform samplerCube uCubeMap;                        // Cubemap sampler
-                uniform sampler2D uNormalMap;                        // Tangent-space normal map sampler
-                uniform bool uUseSkybox;                             // Skybox toggle
-                uniform bool uUseReflectionMap;                      // Reflection toggle
-                uniform bool uUseBlendMap;                           // Blend toggle
-                uniform float uBlendFactor;                          // Blend factor
-                uniform float uBumpStrength;                         // Normal-map intensity
-                uniform vec3 uCameraPosition;                        // Camera position
-                
-                const int MAX_LIGHTS = 4;
-                uniform int uLightCount;
-                uniform vec4 LightPos[MAX_LIGHTS];                   // Light positions/directions
-                uniform vec4 ambientLight[MAX_LIGHTS];               // Ambient light
-		        uniform vec4 diffuseLight[MAX_LIGHTS];               // Diffuse light
-		        uniform vec4 specularLight[MAX_LIGHTS];              // Specular light
-		        uniform vec4 ambientMat;                             // Ambient Material
-		        uniform vec4 diffuseMat;                             // Diffuse Material
-		        uniform vec4 specularMat;                            // Specular Material
-                uniform float shininess;                             // Shininess Coefficient
+<html>
+<head>
+    <title>Treasure Collector</title>
 
-                out vec4 FragColor;                                  // Fragment color out
-                
-                vec3 getMappedNormal(){                              // Convert tangent-space normal map data into a world-space normal
-                    vec3 baseNormal = normalize(vWorldNormal);       // Normalize the interpolated mesh normal
-                    vec3 tangent = vWorldTangent - baseNormal * dot(baseNormal, vWorldTangent); // Re-orthogonalize the tangent against the normal
-                    vec3 bitangent = vWorldBitangent - baseNormal * dot(baseNormal, vWorldBitangent); // Re-orthogonalize the bitangent against the normal
-                    if(length(tangent) < 0.0001 || length(bitangent) < 0.0001)
-                    {
-                        return baseNormal;                           // Fall back to the mesh normal if the UV derivatives are degenerate
-                    }
-                    tangent = normalize(tangent);                    // Normalize the tangent vector
-                    bitangent = normalize(bitangent);                // Normalize the bitangent vector
-                    vec3 sampledNormal = texture(uNormalMap, vtextureCoordinates).rgb * 2.0 - 1.0; // Convert the normal map from [0,1] into [-1,1]
-                    sampledNormal = normalize(vec3(sampledNormal.xy * uBumpStrength, sampledNormal.z)); // Scale the tangent-space x/y perturbation
-                    mat3 TBN = mat3(tangent, bitangent, baseNormal); // Build the tangent-to-world transform
-                    return normalize(TBN * sampledNormal);           // Transform the tangent-space normal into world space
-                }                                                    
-                
-                void main(){                                              
-                    if(uUseSkybox)                                   
-                    {                                                
-                        FragColor = texture(uCubeMap, normalize(vCubeMapCoordinates)); // Skybox/CubeMap
-                    }                                                
-                    else                                             
-                    {                                                
-                        vec3 surfaceNormal = getMappedNormal();      // Build the normal-mapped normal once per fragment
-                        
-                        vec3 viewDirection = normalize(uCameraPosition - vWorldPosition); // V = normalize(cameraPosition - fragmentPosition)
-                        vec4 ambientAccum = vec4(0.0);
-                        vec4 diffuseAccum = vec4(0.0);
-                        vec4 specularAccum = vec4(0.0);
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+        }
 
-                        for (int i = 0; i < MAX_LIGHTS; ++i) {
-                            if (i >= uLightCount) {
-                                break;
-                            }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
 
-                            vec3 lightDirection = vec3(0.0, 0.0, 1.0);
-                            float attenuation = 1.0;
+        #ui {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 10px 14px;
+            border-radius: 8px;
+            z-index: 10;
+        }
+    </style>
+</head>
 
-                            if (LightPos[i].w == 0.0) {
-                                lightDirection = normalize(LightPos[i].xyz);
-                            } else {
-                                vec3 lightVector = LightPos[i].xyz - vWorldPosition;
-                                float lightDistance = length(lightVector);
-                                lightDirection = normalize(lightVector);
-                                
-                                /**********************************************/
-                                //STEP 1: Implement point-light attenuation using the attenuation equation
-                                /**********************************************/
-                            }
-                            /**********************************************/
-                            // STEP 2:
-                            // Compute the material-light products using component-wise multiplication.
-                            vec4 ambientProduct = vec4(0.0); //A
-			                vec4 diffuseProduct = vec4(0.0); //D_base
-			                vec4 specularProduct = vec4(0.0); //S_base
-                            /**********************************************/
+<script src="WebGL.js"></script>
+<script src="Functions.js"></script>
+<script src="Classes.js"></script>
+<script src="Objects.js"></script>
 
+<body>
+    <div id="ui">
+        <div><strong>Treasure Collector</strong></div>
+        <div>WASD to move</div>
+    </div>
 
-                            /**********************************************/
-                            // STEP 3:
-                            // Calculate Lambert diffuse and final diffuse color
-                            float Kd = 0.0;
-                            vec4 diffuse = vec4(0.0);
-                            /**********************************************/
-                            
-                            /**********************************************/
-                            // STEP 4:
-                            // Blinn-Phong specular:
-                            vec3 viewHalfVector = vec3(0.0, 0.0, 1.0);
-                            float Ks = 0.0;
-			                vec4 specular = vec4(0.0);
-                            /**********************************************/
+    <canvas id="example" tabindex="0"></canvas>
 
-                            /**********************************************/
-                            // STEP 5:
-                            // If the light is behind the surface, remove the specular term.
-                            /**********************************************/
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        #version 300 es
 
-                            /**********************************************/
-                            // STEP 6:
-                            // Accumulate the ambient, diffuse, and specular contributions.
-                            // Since they are all vec4 you can do it like: ambientAccum += ambientProduct;
-                            /**********************************************/
-                        }
+        in vec3 coordinates;
+        in vec2 textureCoordinates;
+        in vec3 normal;
+        in vec3 tangent;
+        in vec3 bitangent;
 
-                        vec3 ambientDiffuseColor = vec3(1.0);
-                        vec3 specularColor = vec3(0.0);
+        out vec2 vtextureCoordinates;
+        out vec3 vWorldPosition;
+        out vec3 vWorldNormal;
+        out vec3 vWorldTangent;
+        out vec3 vWorldBitangent;
 
-                        /**********************************************/
-                        // STEP 7:
-                        // Clamp the final lighting colors.
-                        /**********************************************/
+        uniform mat4 uScale;
+        uniform mat4 uTranslate;
+        uniform mat4 uXRotate;
+        uniform mat4 uYRotate;
+        uniform mat4 uZRotate;
+        uniform mat4 uP_Matrix;
+        uniform mat4 uView_matrix;
 
-                        if(uUseReflectionMap)                        
-                        {                                            
-                            vec3 incidentDirection = -viewDirection; // Incident direction
-                            vec3 reflectionDirection = reflect(incidentDirection, surfaceNormal); // Reflection direction
-                            vec4 reflectionColor = texture(uCubeMap, reflectionDirection); // Sample the reflected cubemap color
-                            
-                            /**********************************************/
-                            // STEP 8a:
-                            // Shade the reflection map using ambientDiffuseColor and specularColor.
-                            // FragColor = vec4(reflectionColor.rgb * (0.65 + 0.35 * ambientDiffuseColor) + specularColor, reflectionColor.a);
-                            FragColor = reflectionColor;
-                            /**********************************************/
-                            
-                        }                                            
-                        else if(uUseBlendMap)                        
-                        {                                            
-                            vec3 incidentDirection = -viewDirection; // Incident direction
-                            vec3 reflectionDirection = reflect(incidentDirection, surfaceNormal); // Reflection direction
-                            vec4 baseTextureColor = texture(uTexture, vtextureCoordinates); // Base texture color
-                            /**********************************************/
-                            // STEP 8b:
-                            // Build the shaded base color using ambientDiffuseColor and specularColor.
-                            vec4 bumpedBaseColor = baseTextureColor;
-                            vec4 reflectionColor = texture(uCubeMap, reflectionDirection); // Calculate Reflection color
-                            FragColor = mix(bumpedBaseColor, reflectionColor, uBlendFactor); // Blend the bumped base color with the reflection
-                            /**********************************************/
-                        }                                            
-                        else                                          
-                        {                                            
-                            vec4 baseTextureColor = texture(uTexture, vtextureCoordinates); // Base texture color
-                            /**********************************************/
-                            // STEP 8c:
-                            // Shade the base texture using ambientDiffuseColor and specularColor.
-                            FragColor = baseTextureColor;
-                            /**********************************************/
+        void main() {
+            vtextureCoordinates = textureCoordinates;
 
-                        }                                            
-                    }                                                
-                    
-                }                                                    
-            
-            </script>
-        
-        <script>
-            // Get the canvas element from the HTML document
-            var canvas = document.getElementById("example");
-            // Create a WebGL2 rendering context from the canvas
-            var gl= canvas.getContext('webgl2');
-            // Instantiate the WebGL helper class
-            var myWebGL= new WebGL();
+            mat4 uRotate = uZRotate * uYRotate * uXRotate;
+            mat4 modelMatrix = uTranslate * uRotate * uScale;
 
-            
-            var MainCamera = new Camera();
-            var MainLight= new Light();
-            var RedLight = new Light();
-            var Lights = [MainLight, RedLight];
-            
-            MainCamera.position=[0.0,0.0,4.8];
-            MainLight.lightPosition[3] = 0.0; //0 infinite, 1 finite
-            RedLight.lightPosition = [0.0, 0.0, 2.0, 1.0];
-            RedLight.lightAmbient = [0.03, 0.0, 0.0, 1.0];
-            RedLight.lightDiffuse = [1.0, 0.0, 0.0, 1.0];
-            RedLight.lightSpecular = [1.0, 0.0, 0.0, 1.0];
+            vec4 worldPosition = modelMatrix * vec4(coordinates, 1.0);
+            vWorldPosition = worldPosition.xyz;
 
-            // Normal map generator: https://cpetry.github.io/NormalMap-Online/
-            var SceneCubeMapTexture = CreateCubeMap(cubeMapFaceSources); //create the cubemap
-            var NormalMapTexture = CreateImageTexture("Textures/ou_normal.png", gl.REPEAT, gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR);//, new Uint8Array([128, 128, 255, 255])); //load the normal map texture
-            var OUTexture = CreateImageTexture("Textures/ou.png", gl.CLAMP_TO_EDGE, gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR);
-            var FlatNormalMapTexture = CreateImageTexture("Textures/NoBump.png", gl.REPEAT, gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR, new Uint8Array([128, 128, 255, 255])); //optional flat normal map texture
-            
-            //Objects
-            var ReflectiveCube = new ReflectiveShape(cubeVertices, cubeIndices, cubeTextureCoordinates, cubeNormals); //create a reflective cube
-            var BlendedCube = new ReflectiveShape(cubeVertices, cubeIndices, cubeTextureCoordinates, cubeNormals, OUTexture, NormalMapTexture); //create a blended cube with normal mapping
-            var TexturedCube = new ReflectiveShape(cubeVertices, cubeIndices, cubeTextureCoordinates, cubeNormals, OUTexture, FlatNormalMapTexture); //create a textured cube with a flat fallback normal
-            var TexturedandBumpedCube = new ReflectiveShape(cubeVertices, cubeIndices, cubeTextureCoordinates, cubeNormals, OUTexture, NormalMapTexture); //create a textured cube with normal mapping
-            
-            var SceneSkybox = new Skybox(cubeVertices, cubeIndices, cubeTextureCoordinates, SceneCubeMapTexture); //Use the cubemap to create a skybox
+            vWorldNormal = mat3(uRotate) * normal;
+            vWorldTangent = mat3(uRotate) * tangent;
+            vWorldBitangent = mat3(uRotate) * bitangent;
 
-            ReflectiveCube.cubeMapTexture = SceneCubeMapTexture;
-            BlendedCube.cubeMapTexture = SceneCubeMapTexture;
-            TexturedCube.cubeMapTexture = SceneCubeMapTexture;
-            TexturedandBumpedCube.cubeMapTexture = SceneCubeMapTexture;
+            mat4 VPMatrix = uP_Matrix * uView_matrix;
+            mat4 MVPMatrix = VPMatrix * modelMatrix;
 
-            ReflectiveCube.size = [1.55, 1.55, 1.55];
-            ReflectiveCube.position[0] = -1.35;
-            ReflectiveCube.blendFactor = 1.0;
-            ReflectiveCube.rotation[0] = 0.35;
-            ReflectiveCube.rotation[1] = 0.8;
-            
-            BlendedCube.size = [1.55, 1.55, 1.55];
-            BlendedCube.position[0] = -0.45;
-            BlendedCube.blendFactor = 0.45;
-            BlendedCube.bumpStrength = 4.0;
-            BlendedCube.rotation[0] = 0.35;
-            BlendedCube.rotation[1] = 0.8;
-            
-            TexturedCube.size = [1.55, 1.55, 1.55];
-            TexturedCube.position[0] = 0.45;
-            TexturedCube.blendFactor = 0.0;
-            TexturedCube.rotation[0] = 0.35;
-            TexturedCube.rotation[1] = 0.8;
+            gl_Position = MVPMatrix * vec4(coordinates, 1.0);
+        }
+    </script>
 
-            TexturedandBumpedCube.size = [1.55, 1.55, 1.55];
-            TexturedandBumpedCube.position[0] = 1.35;
-            TexturedandBumpedCube.blendFactor = 0.0;
-            TexturedandBumpedCube.bumpStrength= 7.0;
-            TexturedandBumpedCube.rotation[0] = 0.35;
-            TexturedandBumpedCube.rotation[1] = 0.8;
-            
-            
-            setPerspective(myWebGL);
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
 
-            function animate(){
-               gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-              
-	               ReflectiveCube.rotation[1] += 0.003;
-	               BlendedCube.rotation[1] += 0.003;
-	               TexturedCube.rotation[1] += 0.003;
-	               TexturedandBumpedCube.rotation[1] += 0.003;
+        in vec2 vtextureCoordinates;
+        in vec3 vWorldPosition;
+        in vec3 vWorldNormal;
+        in vec3 vWorldTangent;
+        in vec3 vWorldBitangent;
 
-	               MainCamera.render();
-	               MainLight.lightPosition[0] = MainCamera.position[0];
-	               MainLight.lightPosition[1] = MainCamera.position[1];
-	               MainLight.lightPosition[2] = MainCamera.position[2];
-	               for (var i = 0; i < Lights.length; i++) {
-	                   Lights[i].render(i, Lights.length);
-	               }
-	           SceneSkybox.render(MainCamera);
-	           ReflectiveCube.render();
-               BlendedCube.render();
-               TexturedCube.render();
-               TexturedandBumpedCube.render();
-               window.requestAnimationFrame(animate);
+        uniform sampler2D uTexture;
+        uniform sampler2D uNormalMap;
+        uniform float uBumpStrength;
+        uniform vec3 uCameraPosition;
 
+        const int MAX_LIGHTS = 4;
+
+        uniform int uLightCount;
+        uniform vec4 LightPos[MAX_LIGHTS];
+        uniform vec4 ambientLight[MAX_LIGHTS];
+        uniform vec4 diffuseLight[MAX_LIGHTS];
+        uniform vec4 specularLight[MAX_LIGHTS];
+
+        uniform vec4 ambientMat;
+        uniform vec4 diffuseMat;
+        uniform vec4 specularMat;
+        uniform float shininess;
+
+        out vec4 FragColor;
+
+        vec3 getMappedNormal() {
+            vec3 baseNormal = normalize(vWorldNormal);
+
+            vec3 tangent = vWorldTangent - baseNormal * dot(baseNormal, vWorldTangent);
+            vec3 bitangent = vWorldBitangent - baseNormal * dot(baseNormal, vWorldBitangent);
+
+            if(length(tangent) < 0.0001 || length(bitangent) < 0.0001) {
+                return baseNormal;
             }
-            animate();
 
-        </script>
+            tangent = normalize(tangent);
+            bitangent = normalize(bitangent);
 
-    </body>
-</html> 
+            vec3 sampledNormal = texture(uNormalMap, vtextureCoordinates).rgb * 2.0 - 1.0;
+            sampledNormal = normalize(vec3(sampledNormal.xy * uBumpStrength, sampledNormal.z));
+
+            mat3 TBN = mat3(tangent, bitangent, baseNormal);
+            return normalize(TBN * sampledNormal);
+        }
+
+        void main() {
+            vec3 surfaceNormal = getMappedNormal();
+            vec3 viewDirection = normalize(uCameraPosition - vWorldPosition);
+
+            vec4 ambientAccum = vec4(0.0);
+            vec4 diffuseAccum = vec4(0.0);
+            vec4 specularAccum = vec4(0.0);
+
+            for(int i = 0; i < MAX_LIGHTS; ++i) {
+                if(i >= uLightCount) {
+                    break;
+                }
+
+                vec3 lightDirection;
+                float attenuation = 1.0;
+
+                if(LightPos[i].w == 0.0) {
+                    lightDirection = normalize(LightPos[i].xyz);
+                } else {
+                    vec3 lightVector = LightPos[i].xyz - vWorldPosition;
+                    float lightDistance = length(lightVector);
+                    lightDirection = normalize(lightVector);
+
+                    attenuation = 1.0 / 
+                        (1.0 + 0.09 * lightDistance + 0.032 * lightDistance * lightDistance);
+                }
+
+                vec4 ambientProduct = ambientLight[i] * ambientMat;
+                vec4 diffuseProduct = diffuseLight[i] * diffuseMat;
+                vec4 specularProduct = specularLight[i] * specularMat;
+
+                float Kd = max(dot(surfaceNormal, lightDirection), 0.0);
+                vec4 diffuse = Kd * diffuseProduct;
+
+                vec3 viewHalfVector = normalize(lightDirection + viewDirection);
+                float Ks = pow(max(dot(surfaceNormal, viewHalfVector), 0.0), shininess);
+                vec4 specular = Ks * specularProduct;
+
+                if(Kd <= 0.0) {
+                    specular = vec4(0.0);
+                }
+
+                ambientAccum += ambientProduct;
+                diffuseAccum += attenuation * diffuse;
+                specularAccum += attenuation * specular;
+            }
+
+            vec3 ambientDiffuseColor = clamp((ambientAccum + diffuseAccum).rgb, 0.0, 1.0);
+            vec3 specularColor = clamp(specularAccum.rgb, 0.0, 1.0);
+
+            vec4 baseTextureColor = texture(uTexture, vtextureCoordinates);
+
+            FragColor = vec4(
+                baseTextureColor.rgb * ambientDiffuseColor + specularColor,
+                baseTextureColor.a
+            );
+        }
+    </script>
+
+    <script>
+        var canvas = document.getElementById("example");
+        var gl = canvas.getContext("webgl2");
+        var myWebGL = new WebGL();
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        gl.enable(gl.DEPTH_TEST);
+
+        // Simple sky color instead of cube map
+        gl.clearColor(0.5, 0.7, 1.0, 1.0);
+
+        var MainCamera = new Camera();
+        var MainLight = new Light();
+
+        var Lights = [MainLight];
+
+        MainCamera.position = [0.0, 10, 20.0];
+
+        MainLight.lightPosition = [0.0, 5.0, 4.0, 1.0];
+        MainLight.lightAmbient = [0.55, 0.55, 0.55, 1.0];
+        MainLight.lightDiffuse = [1.0, 1.0, 1.0, 1.0];
+        MainLight.lightSpecular = [0.7, 0.7, 0.7, 1.0];
+
+        function createGrassTexture(gl) {
+            const size = 128;
+            const texCanvas = document.createElement("canvas");
+            texCanvas.width = size;
+            texCanvas.height = size;
+
+            const ctx = texCanvas.getContext("2d");
+
+            ctx.fillStyle = "#4f9f3f";
+            ctx.fillRect(0, 0, size, size);
+
+            for(let i = 0; i < 450; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const w = 2 + Math.random() * 4;
+                const h = 2 + Math.random() * 4;
+
+                ctx.fillStyle = Math.random() > 0.5 ? "#3f8a31" : "#6bbf4d";
+                ctx.fillRect(x, y, w, h);
+            }
+
+            for(let i = 0; i < 180; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const len = 6 + Math.random() * 10;
+
+                ctx.strokeStyle = Math.random() > 0.5 ? "#2f6f24" : "#7ed957";
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + Math.random() * 3 - 1.5, y - len);
+                ctx.stroke();
+            }
+
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                texCanvas
+            );
+
+            gl.generateMipmap(gl.TEXTURE_2D);
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+            return texture;
+        }
+
+        var GrassTexture = createGrassTexture(gl);
+
+        var FlatNormalMapTexture = CreateImageTexture(
+            "Textures/NoBump.png",
+            gl.REPEAT,
+            gl.LINEAR_MIPMAP_LINEAR,
+            gl.LINEAR,
+            new Uint8Array([128, 128, 255, 255])
+        );
+
+        var OrangeTexture = CreateImageTexture(
+            "Textures/ou.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR_MIPMAP_LINEAR,
+            gl.LINEAR,
+            new Uint8Array([255, 120, 40, 255])
+        );
+
+        // Ground
+        var Ground = new ReflectiveShape(
+            cubeVertices,
+            cubeIndices,
+            cubeTextureCoordinates,
+            cubeNormals,
+            GrassTexture,
+            FlatNormalMapTexture
+        );
+
+        Ground.size = [100.0, 0.05, 100.0];
+        Ground.position = [0.0, -1.0, 0.0];
+        Ground.rotation = [0.0, 0.0, 0.0];
+        Ground.blendFactor = 0.0;
+        Ground.bumpStrength = 0.0;
+
+        // Orange block / player placeholder
+        var PlayerCube = new ReflectiveShape(
+            cubeVertices,
+            cubeIndices,
+            cubeTextureCoordinates,
+            cubeNormals,
+            OrangeTexture,
+            FlatNormalMapTexture
+        );
+
+        PlayerCube.size = [3, 7, 3];
+        PlayerCube.position = [0.0, -0.55, 0.0];
+        PlayerCube.rotation = [0.0, 0.0, 0.0];
+        PlayerCube.blendFactor = 0.0;
+        PlayerCube.bumpStrength = 0.0;
+
+        setPerspective(myWebGL);
+
+        var keys = {};
+        var playerSpeed = 0.08;
+
+        window.addEventListener("keydown", function(event) {
+            keys[event.key.toLowerCase()] = true;
+        });
+
+        window.addEventListener("keyup", function(event) {
+            keys[event.key.toLowerCase()] = false;
+        });
+
+        function updatePlayerAndCamera() {
+            if(keys["w"]) PlayerCube.position[2] -= playerSpeed;
+            if(keys["s"]) PlayerCube.position[2] += playerSpeed;
+            if(keys["a"]) PlayerCube.position[0] -= playerSpeed;
+            if(keys["d"]) PlayerCube.position[0] += playerSpeed;
+
+            // Camera follows behind and above the cube
+            MainCamera.position[0] = PlayerCube.position[0];
+            MainCamera.position[1] = PlayerCube.position[1] + 2.0;
+            MainCamera.position[2] = PlayerCube.position[2] + 5.0;
+
+            // Camera looks toward the cube
+            if(MainCamera.lookAt) {
+                MainCamera.lookAt([
+                    PlayerCube.position[0],
+                    PlayerCube.position[1],
+                    PlayerCube.position[2]
+                ]);
+            }
+        }
+
+        function animate() {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            updatePlayerAndCamera();
+            MainCamera.render();
+
+            for(var i = 0; i < Lights.length; i++) {
+                Lights[i].render(i, Lights.length);
+            }
+
+            PlayerCube.render();
+            Ground.render();
+            
+
+            window.requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
