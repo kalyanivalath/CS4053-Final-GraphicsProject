@@ -736,6 +736,7 @@ function Checker(texelSize,numCheckers){
 }
 //---------------------------Texture---------------------------//
 
+//---------------------------Coins---------------------------//
 function createCoin(x, z) {
     var coin = new ReflectiveShape(
         coinVertices,
@@ -772,3 +773,43 @@ function collectCoins() {
         }
     }
 }
+//---------------------------Coins---------------------------//
+
+//---------------------------Trees---------------------------//
+function createTree(x, z) {
+
+    // TRUNK
+    var trunk = new ReflectiveShape(
+        cubeVertices,
+        cubeIndices,
+        cubeTextureCoordinates,
+        cubeNormals,
+        BarkTexture,
+        BarkNormal
+    );
+
+    trunk.position = [x, -0.6, z];
+    trunk.size = [1.5, 10, 1.5];
+	trunk.bumpStrength = 2.5;
+
+    // LEAVES
+    var leaves = new ReflectiveShape(
+        cubeVertices,
+        cubeIndices,
+        cubeTextureCoordinates,
+        cubeNormals,
+        LeafTexture,
+        LeafNormal
+    );
+
+    leaves.position = [x, 1.5, z];
+    leaves.size = [5.5, 5.5, 1.5];
+	leaves.bumpStrength = 1.0;
+
+
+    return {
+        trunk: trunk,
+        leaves: leaves
+    };
+}
+//---------------------------Trees---------------------------//

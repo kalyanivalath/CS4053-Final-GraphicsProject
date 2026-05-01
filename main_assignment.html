@@ -312,6 +312,7 @@
             new Uint8Array([255, 120, 40, 255])
         );
 
+        // Coin
         var CoinTexture = CreateImageTexture(
             "Textures/coin-bg.png",
             gl.CLAMP_TO_EDGE,
@@ -338,9 +339,43 @@
                 object: createCoin(x, z),
                 active: true
             });
-            
-           //coins.push(createCoin(x, z));
         }
+
+        // Trees
+        var BarkTexture = CreateImageTexture(
+            "Textures/bark.png",
+            gl.REPEAT,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var BarkNormal = CreateImageTexture(
+            "Textures/bark_normal.png",
+            gl.REPEAT,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var LeafTexture = CreateImageTexture(
+            "Textures/leaf.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var LeafNormal = CreateImageTexture(
+            "Textures/leaf_normal.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var trees = [];
+
+        trees.push(createTree(3, -3));
+        trees.push(createTree(-4, -6));
+        trees.push(createTree(6, -8));
+        trees.push(createTree(-2, -10));
 
         // Ground
         var Ground = new ReflectiveShape(
@@ -388,10 +423,34 @@
         });
 
         function updatePlayerAndCamera() {
+            // Save old position
+            let oldX = PlayerCube.position[0];
+            let oldZ = PlayerCube.position[2];
+
+
             if(keys["w"]) PlayerCube.position[2] -= playerSpeed;
             if(keys["s"]) PlayerCube.position[2] += playerSpeed;
             if(keys["a"]) PlayerCube.position[0] -= playerSpeed;
             if(keys["d"]) PlayerCube.position[0] += playerSpeed;
+
+            // COLLISION CHECK
+            for (let i = 0; i < trees.length; i++) {
+                let treePos = trees[i].trunk.position;
+
+                let hit = collision.SphereCollider(
+                    PlayerCube.position,
+                    treePos,
+                    1.2   // adjust this if needed
+                );
+
+                if (hit) {
+                    // revert movement
+                    PlayerCube.position[0] = oldX;
+                    PlayerCube.position[2] = oldZ;
+                    break;
+                }
+            }
+
 
             // Camera follows behind and above the cube
             MainCamera.position[0] = PlayerCube.position[0];
@@ -428,6 +487,11 @@
 
                 coins[i].object.rotation[1] += 0.05; // spin
                 coins[i].object.render();
+            }
+
+            for (let i = 0; i < trees.length; i++) {
+                trees[i].trunk.render();
+                trees[i].leaves.render();
             }
 
             PlayerCube.render();
