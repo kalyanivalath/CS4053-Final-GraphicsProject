@@ -98,7 +98,7 @@ class CollisionDetection{
 		}
 	}
 	render(){
-        this.keyboardEvents();
+        //this.keyboardEvents();
         var camera_position_matrix=Translate(myWebGL,this.position[0],this.position[1],this.position[2]);
 		var camera_rotation_matrix=Rotate(myWebGL,this.rotation[1],'y');
         var view_matrix= Inverse(Multiply(camera_position_matrix,camera_rotation_matrix));
