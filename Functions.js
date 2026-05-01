@@ -481,6 +481,7 @@ var s=false;
 var d=false;
 var e=false;
 var q=false;
+var c=false;
 //keydown
 function KeyButtonDownEvent(event){
 	switch (event.key.toLowerCase()){
@@ -507,6 +508,10 @@ function KeyButtonDownEvent(event){
 
 		case 'q': //q
 			q=true;
+		break;
+
+		case 'c': //c
+			c=true;
 		break;
 
 	}
@@ -539,6 +544,10 @@ function KeyButtonUpEvent(event){
 
 		case 'q': //q
 			q=false;
+		break;
+
+		case 'c': //c
+			c=false;
 		break;
 
 	}
@@ -743,4 +752,23 @@ function createCoin(x, z) {
     coin.bumpStrength = 2.0;
 
     return coin;
+}
+
+function collectCoins() {
+    // only run when C is pressed
+    if (!keys["c"]) return;
+
+    for (let i = 0; i < coins.length; i++) {
+        if (!coins[i].active) continue;
+
+        let coinPos = coins[i].object.position;
+        let playerPos = PlayerCube.position;
+
+        let hit = collision.SphereCollider(playerPos, coinPos, 2.5);
+
+        if (hit) {
+            coins[i].active = false;
+            console.log("Coin collected!");
+        }
+    }
 }

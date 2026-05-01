@@ -40,6 +40,7 @@
     <div id="ui">
         <div><strong>Treasure Collector</strong></div>
         <div>WASD to move</div>
+        <div>C to collect coins</div>
     </div>
 
     <canvas id="example" tabindex="0"></canvas>
@@ -204,6 +205,8 @@
         var gl = canvas.getContext("webgl2");
         var myWebGL = new WebGL();
 
+        var collision = new CollisionDetection();
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -330,7 +333,13 @@
             let x = Math.random() * 20 - 10;
             let z = Math.random() * 20 - 10;
 
-            coins.push(createCoin(x, z));
+            
+            coins.push({
+                object: createCoin(x, z),
+                active: true
+            });
+            
+           //coins.push(createCoin(x, z));
         }
 
         // Ground
@@ -404,19 +413,26 @@
         function animate() {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+            
             updatePlayerAndCamera();
+            collectCoins();
+            
             MainCamera.render();
 
             for(var i = 0; i < Lights.length; i++) {
                 Lights[i].render(i, Lights.length);
             }
 
+            for (let i = 0; i < coins.length; i++) {
+                if (!coins[i].active) continue;
+
+                coins[i].object.rotation[1] += 0.05; // spin
+                coins[i].object.render();
+            }
+
             PlayerCube.render();
             Ground.render();
-            for (let i = 0; i < coins.length; i++) {
-                coins[i].rotation[1] += 0.05; // spin
-                coins[i].render();
-            }
+            
             
 
             window.requestAnimationFrame(animate);
