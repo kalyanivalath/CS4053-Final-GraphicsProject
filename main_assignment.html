@@ -28,6 +28,52 @@
             border-radius: 8px;
             z-index: 10;
         }
+
+        #startScreen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: rgb(54, 102, 70); /* dark overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        #startBox {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            font-family: Arial;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #startButton {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #endScreen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+        }
+
+        #endBox {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -41,7 +87,30 @@
         <div><strong>Treasure Collector</strong></div>
         <div>WASD to move</div>
         <div>C to collect coins</div>
+        <div id="score">Coins: 0 / 5</div>
         <div id="lives">Lives: 3</div>
+        <div id="timer">Time: 30</div>
+    </div>
+
+    <div id="startScreen">
+        <div id="startBox">
+            <h2>Treasure Collector</h2>
+
+            <p>
+                You are a treasure hunter exploring a mysterious forest 🌲.<br><br>
+                Collect all the coins before time runs out ⏱️.<br>
+                Avoid poisonous bugs 🐞 or you'll lose a life!
+            </p>
+
+            <button id="startButton">Start Game</button>
+        </div>
+    </div>
+
+    <div id="endScreen" style="display:none;">
+        <div id="endBox">
+            <h2 id="endMessage"></h2>
+            <button onclick="resetGame()">Try Again</button>
+        </div>
     </div>
 
     <canvas id="example" tabindex="0"></canvas>
@@ -207,6 +276,7 @@
         var myWebGL = new WebGL();
 
         var collision = new CollisionDetection();
+        let gameStarted = false;
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -342,6 +412,16 @@
             });
         }
 
+        let coinsCollected = 0;
+        let totalCoins = coins.length;
+
+        function updateScoreUI() {
+            document.getElementById("score").innerText =
+            "Coins: " + coinsCollected + " / " + totalCoins;
+        }
+
+        updateScoreUI();
+
         // Trees
         var BarkTexture = CreateImageTexture(
             "Textures/bark.png",
@@ -436,6 +516,45 @@
         bugs.push(createBug(-2, -8));
         bugs.push(createBug(4, -11));
         bugs.push(createBug(-5, -13));
+
+
+        // Start button logic
+        let timeLeft = 30; // seconds
+        let timerInterval = null;
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+
+                document.getElementById("timer").innerText =
+                    "Time: " + timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame(false);
+                }
+            }, 1000);
+        }
+
+        function endGame(won) {
+            gameStarted = false;
+
+            document.getElementById("endScreen").style.display = "flex";
+
+            document.getElementById("endMessage").innerText =
+                won ? "🎉 You Win!" : "⏰ Time's Up! You Lost";
+        }
+
+        function resetGame() {
+            location.reload(); // easiest reset
+        }
+
+        document.getElementById("startButton").onclick = function() {
+            document.getElementById("startScreen").style.display = "none";
+            gameStarted = true;
+
+            startTimer();
+        };
 
         // Ground
         var Ground = new ReflectiveShape(
@@ -566,10 +685,20 @@
 
         function animate() {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
+            /*
+            if (!gameStarted) {
+                requestAnimationFrame(animate);
+                return;
+            }
             
             updatePlayerAndCamera();
             collectCoins();
+            */
+
+            if (gameStarted) {
+                updatePlayerAndCamera();
+                collectCoins();
+            }
             
             MainCamera.render();
 
@@ -596,38 +725,41 @@
             for (let i = 0; i < bugs.length; i++) {
                 let b = bugs[i];
 
-                b.angle += 0.02;
+                if (gameStarted) {
 
-                /*
-                b.position[0] = b.center[0] + Math.cos(b.angle) * b.radius;
-                b.position[2] = b.center[1] + Math.sin(b.angle) * b.radius;
-                */
+                    b.angle += 0.02;
 
-                let newX = b.center[0] + Math.cos(b.angle) * b.radius;
-                let newZ = b.center[1] + Math.sin(b.angle) * b.radius;
+                    /*
+                    b.position[0] = b.center[0] + Math.cos(b.angle) * b.radius;
+                    b.position[2] = b.center[1] + Math.sin(b.angle) * b.radius;
+                    */
 
-                let blocked = false;
+                    let newX = b.center[0] + Math.cos(b.angle) * b.radius;
+                    let newZ = b.center[1] + Math.sin(b.angle) * b.radius;
 
-                // Check trees
-                for (let j = 0; j < trees.length; j++) {
-                    if (collision.SphereCollider([newX, 0, newZ], trees[j].trunk.position, 1.2)) {
-                        blocked = true;
-                        break;
+                    let blocked = false;
+
+                    // Check trees
+                    for (let j = 0; j < trees.length; j++) {
+                        if (collision.SphereCollider([newX, 0, newZ], trees[j].trunk.position, 1.2)) {
+                            blocked = true;
+                            break;
+                        }
                     }
-                }
 
-                // Check boulders
-                for (let j = 0; j < boulders.length; j++) {
-                    if (collision.SphereCollider([newX, 0, newZ], boulders[j].position, 1.5)) {
-                        blocked = true;
-                        break;
+                    // Check boulders
+                    for (let j = 0; j < boulders.length; j++) {
+                        if (collision.SphereCollider([newX, 0, newZ], boulders[j].position, 1.5)) {
+                            blocked = true;
+                            break;
+                        }
                     }
-                }
 
-                // Only move if not blocked
-                if (!blocked) {
-                    b.position[0] = newX;
-                    b.position[2] = newZ;
+                    // Only move if not blocked
+                    if (!blocked) {
+                        b.position[0] = newX;
+                        b.position[2] = newZ;
+                    }
                 }
                 b.render();
             }

@@ -769,6 +769,12 @@ function collectCoins() {
 
         if (hit) {
             coins[i].active = false;
+			coinsCollected++;
+			updateScoreUI();
+			if (coinsCollected === totalCoins) {
+				clearInterval(timerInterval);
+				endGame(true); // 🎉 WIN
+			}
             console.log("Coin collected!");
         }
     }
