@@ -377,6 +377,31 @@
         trees.push(createTree(6, -8));
         trees.push(createTree(-2, -10));
 
+        // Rocks
+        var RockTexture = CreateImageTexture(
+            "Textures/boulder.png",
+            gl.REPEAT,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var RockNormal = CreateImageTexture(
+            "Textures/boulder_normal.png",
+            gl.REPEAT,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var sphereData = createSphere(1, 20, 20);
+
+        var boulders = [];
+
+        boulders.push(createBoulder(5, -5));
+        boulders.push(createBoulder(-6, -7));
+        boulders.push(createBoulder(2, -9));
+        boulders.push(createBoulder(-3, -12));
+
+
         // Ground
         var Ground = new ReflectiveShape(
             cubeVertices,
@@ -451,6 +476,23 @@
                 }
             }
 
+            for (let i = 0; i < boulders.length; i++) {
+
+                let rockPos = boulders[i].position;
+
+                let hit = collision.SphereCollider(
+                    PlayerCube.position,
+                    rockPos,
+                    1.5   // adjust size
+                );
+
+                if (hit) {
+                    PlayerCube.position[0] = oldX;
+                    PlayerCube.position[2] = oldZ;
+                    break;
+                }
+            }
+
 
             // Camera follows behind and above the cube
             MainCamera.position[0] = PlayerCube.position[0];
@@ -492,6 +534,10 @@
             for (let i = 0; i < trees.length; i++) {
                 trees[i].trunk.render();
                 trees[i].leaves.render();
+            }
+
+            for (let i = 0; i < boulders.length; i++) {
+                boulders[i].render();
             }
 
             PlayerCube.render();

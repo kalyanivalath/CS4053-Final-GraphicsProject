@@ -813,3 +813,72 @@ function createTree(x, z) {
     };
 }
 //---------------------------Trees---------------------------//
+
+//---------------------------Boulders---------------------------//
+function createSphere(radius = 1, latBands = 20, longBands = 20) {
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+
+    for (let lat = 0; lat <= latBands; lat++) {
+        let theta = lat * Math.PI / latBands;
+        let sinTheta = Math.sin(theta);
+        let cosTheta = Math.cos(theta);
+
+        for (let lon = 0; lon <= longBands; lon++) {
+            let phi = lon * 2 * Math.PI / longBands;
+            let sinPhi = Math.sin(phi);
+            let cosPhi = Math.cos(phi);
+
+            let x = cosPhi * sinTheta;
+            let y = cosTheta;
+            let z = sinPhi * sinTheta;
+
+            vertices.push(radius * x, radius * y, radius * z);
+            normals.push(x, y, z);
+            texCoords.push(lon / longBands, lat / latBands);
+        }
+    }
+
+    for (let lat = 0; lat < latBands; lat++) {
+        for (let lon = 0; lon < longBands; lon++) {
+            let first = lat * (longBands + 1) + lon;
+            let second = first + longBands + 1;
+
+            indices.push(first, second, first + 1);
+            indices.push(second, second + 1, first + 1);
+        }
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        normals: new Float32Array(normals),
+        texCoords: new Float32Array(texCoords),
+        indices: new Uint16Array(indices)
+    };
+}
+
+function createBoulder(x, z) {
+
+    var rock = new ReflectiveShape(
+        sphereData.vertices,
+        sphereData.indices,
+        sphereData.texCoords,
+        sphereData.normals,
+        RockTexture,
+        RockNormal
+    );
+
+    rock.position = [x, -0.5, z];
+	//rock.position[1] = rock.size[1] / 2;
+	rock.size = [0.8, 0.5, 0.3];
+
+    // make it look more natural (not perfect cube)
+   
+
+    rock.bumpStrength = 2.0;
+
+    return rock;
+}
+//---------------------------Boulders---------------------------//
