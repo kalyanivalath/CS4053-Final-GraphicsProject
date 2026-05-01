@@ -726,3 +726,21 @@ function Checker(texelSize,numCheckers){
 
 }
 //---------------------------Texture---------------------------//
+
+function createCoin(x, z) {
+    var coin = new ReflectiveShape(
+        coinVertices,
+        coinIndices,
+        coinTexCoords,
+        coinNormals,
+        CoinTexture,
+        CoinNormal
+    );
+
+    coin.position = [x, 0.5, z];
+    coin.size = [1.5, 1.5, 1.5];
+    coin.rotation = [Math.PI / 2, 0, 0]; // lay flat
+    coin.bumpStrength = 2.0;
+
+    return coin;
+}

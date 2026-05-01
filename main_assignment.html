@@ -189,6 +189,9 @@
 
             vec4 baseTextureColor = texture(uTexture, vtextureCoordinates);
 
+            // REMOVE TRANSPARENT PIXELS (this is the fix)
+            if(baseTextureColor.a < 0.1) discard;
+
             FragColor = vec4(
                 baseTextureColor.rgb * ambientDiffuseColor + specularColor,
                 baseTextureColor.a
@@ -211,6 +214,8 @@
         resizeCanvas();
 
         gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         // Simple sky color instead of cube map
         gl.clearColor(0.5, 0.7, 1.0, 1.0);
@@ -297,12 +302,36 @@
         );
 
         var OrangeTexture = CreateImageTexture(
-            "Textures/ou.png",
+            "Textures/orange.png",
             gl.CLAMP_TO_EDGE,
             gl.LINEAR_MIPMAP_LINEAR,
             gl.LINEAR,
             new Uint8Array([255, 120, 40, 255])
         );
+
+        var CoinTexture = CreateImageTexture(
+            "Textures/coin-bg.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var CoinNormal = CreateImageTexture(
+            "Textures/coin-bg_normal.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var coins = [];
+        
+
+        for (let i = 0; i < 5; i++) {
+            let x = Math.random() * 20 - 10;
+            let z = Math.random() * 20 - 10;
+
+            coins.push(createCoin(x, z));
+        }
 
         // Ground
         var Ground = new ReflectiveShape(
@@ -384,6 +413,10 @@
 
             PlayerCube.render();
             Ground.render();
+            for (let i = 0; i < coins.length; i++) {
+                coins[i].rotation[1] += 0.05; // spin
+                coins[i].render();
+            }
             
 
             window.requestAnimationFrame(animate);
