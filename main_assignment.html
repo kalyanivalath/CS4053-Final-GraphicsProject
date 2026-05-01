@@ -41,6 +41,7 @@
         <div><strong>Treasure Collector</strong></div>
         <div>WASD to move</div>
         <div>C to collect coins</div>
+        <div id="lives">Lives: 3</div>
     </div>
 
     <canvas id="example" tabindex="0"></canvas>
@@ -402,6 +403,40 @@
         boulders.push(createBoulder(-3, -12));
 
 
+        // Bugs
+        let lives = 3;
+        let canTakeDamage = true;
+
+        function updateLivesUI() {
+            let safeLives = Math.max(0, lives); // prevent negative
+
+            document.getElementById("lives").innerText =
+            "Lives: " + "❤️".repeat(safeLives);
+        }
+
+        updateLivesUI();
+
+        
+        var BugTexture = CreateImageTexture(
+            "Textures/bug-bg.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+        var BugNormal = CreateImageTexture(
+            "Textures/bug-bg_normal.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        var bugs = [];
+
+        bugs.push(createBug(1, -4));
+        bugs.push(createBug(-2, -8));
+        bugs.push(createBug(4, -11));
+        bugs.push(createBug(-5, -13));
+
         // Ground
         var Ground = new ReflectiveShape(
             cubeVertices,
@@ -493,6 +528,24 @@
                 }
             }
 
+            for (let i = 0; i < bugs.length; i++) {
+                let hitb = collision.SphereCollider(
+                    PlayerCube.position,
+                    bugs[i].position,
+                    1.0
+                );
+
+                if (hitb && canTakeDamage) {
+                    lives--;
+                    updateLivesUI();
+                    PlayerCube.position = [0, 0, 0]; // reset
+                    canTakeDamage = false;
+                    setTimeout(() => {
+                        canTakeDamage = true;
+                    }, 1000); // prevent taking damage too frequently
+                }
+            }
+
 
             // Camera follows behind and above the cube
             MainCamera.position[0] = PlayerCube.position[0];
@@ -538,6 +591,45 @@
 
             for (let i = 0; i < boulders.length; i++) {
                 boulders[i].render();
+            }
+
+            for (let i = 0; i < bugs.length; i++) {
+                let b = bugs[i];
+
+                b.angle += 0.02;
+
+                /*
+                b.position[0] = b.center[0] + Math.cos(b.angle) * b.radius;
+                b.position[2] = b.center[1] + Math.sin(b.angle) * b.radius;
+                */
+
+                let newX = b.center[0] + Math.cos(b.angle) * b.radius;
+                let newZ = b.center[1] + Math.sin(b.angle) * b.radius;
+
+                let blocked = false;
+
+                // Check trees
+                for (let j = 0; j < trees.length; j++) {
+                    if (collision.SphereCollider([newX, 0, newZ], trees[j].trunk.position, 1.2)) {
+                        blocked = true;
+                        break;
+                    }
+                }
+
+                // Check boulders
+                for (let j = 0; j < boulders.length; j++) {
+                    if (collision.SphereCollider([newX, 0, newZ], boulders[j].position, 1.5)) {
+                        blocked = true;
+                        break;
+                    }
+                }
+
+                // Only move if not blocked
+                if (!blocked) {
+                    b.position[0] = newX;
+                    b.position[2] = newZ;
+                }
+                b.render();
             }
 
             PlayerCube.render();

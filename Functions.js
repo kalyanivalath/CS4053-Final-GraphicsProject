@@ -882,3 +882,26 @@ function createBoulder(x, z) {
     return rock;
 }
 //---------------------------Boulders---------------------------//
+
+//---------------------------Bugs---------------------------//
+function createBug(x, z) {
+    let bug = new ReflectiveShape(
+        sphereData.vertices,
+        sphereData.indices,
+        sphereData.texCoords,
+        sphereData.normals,
+        BugTexture,
+        BugNormal
+    );
+
+    bug.center = [x, z];   // center of circle
+    bug.radius = 2;
+    bug.angle = 0;
+	bug.size = [0.2, 0.2, 0.2];
+	bug.position = [x, -0.8, z];
+	
+
+    return bug;
+}
+//---------------------------Bugs---------------------------//
+
