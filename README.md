@@ -9,8 +9,10 @@ Treasure Collector 3D Game
 A 3D WebGL game where the player explores a world and collects treasures.
 
 ## Controls
-- WASD -> Move
-- E -> Collect items
+- WASD -> Move player
+- C -> Collect coins
+- N -> Toggle Day/Night
+- F -> Turn on/off flashlight
 
 ## Features
 - WebGL rendering pipeline
@@ -19,7 +21,6 @@ A 3D WebGL game where the player explores a world and collects treasures.
 - Collision detection
 - Interactive gameplay
 
-- 
 
 ## Installation
 ### Clone the repo
@@ -49,8 +50,6 @@ git push
 ```bash
 python3 -m http.server 8000
 ```
-
-
 
 ## Textures Folder
 This folder contains all image files used as textures in the WebGL scene.
