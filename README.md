@@ -4,6 +4,23 @@ Computer Graphics Final Project
 
 Treasure Collector 3D Game
 
+
+## Description
+A 3D WebGL game where the player explores a world and collects treasures.
+
+## Controls
+- WASD -> Move
+- E -> Collect items
+
+## Features
+- WebGL rendering pipeline
+- Phong lighting (ambient, diffuse, specular)
+- Textured objects
+- Collision detection
+- Interactive gameplay
+
+- 
+
 ## Installation
 ### Clone the repo
 Copy and paste onto terminal
@@ -33,19 +50,7 @@ git push
 python3 -m http.server 8000
 ```
 
-## Description
-A 3D WebGL game where the player explores a world and collects treasures.
 
-## Controls
-- WASD -> Move
-- E -> Collect items
-
-## Features
-- WebGL rendering pipeline
-- Phong lighting (ambient, diffuse, specular)
-- Textured objects
-- Collision detection
-- Interactive gameplay
 
 ## Textures Folder
 This folder contains all image files used as textures in the WebGL scene.
