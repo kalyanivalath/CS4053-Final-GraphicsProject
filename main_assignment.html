@@ -572,9 +572,20 @@
         var trees = [];
 
         trees.push(createTree(3, -3));
-        trees.push(createTree(-4, -6));
+        trees.push(createTree(-5, 6));
         trees.push(createTree(6, -8));
         trees.push(createTree(-2, -10));
+
+        trees.push(createTree(7, 3));
+        trees.push(createTree(-10, -6));
+        trees.push(createTree(10, -8));
+        trees.push(createTree(-6, -10));
+
+        // Outer ring of trees
+        trees.push(createTree(15, -3));
+        trees.push(createTree(-15, 8));
+        trees.push(createTree(13, 8));
+        trees.push(createTree(-13, -10));
 
         // Rocks
         var RockTexture = CreateImageTexture(
@@ -634,6 +645,11 @@
         bugs.push(createBug(-2, -8));
         bugs.push(createBug(4, -11));
         bugs.push(createBug(-5, -13));
+
+        bugs.push(createBug(10, -4));
+        bugs.push(createBug(-12, -8));
+        bugs.push(createBug(14, -11));
+        bugs.push(createBug(-15, -13));
 
 
         // Start button logic
@@ -925,37 +941,9 @@
 
                     b.angle += 0.02;
 
-                    /*
                     b.position[0] = b.center[0] + Math.cos(b.angle) * b.radius;
                     b.position[2] = b.center[1] + Math.sin(b.angle) * b.radius;
-                    */
 
-                    let newX = b.center[0] + Math.cos(b.angle) * b.radius;
-                    let newZ = b.center[1] + Math.sin(b.angle) * b.radius;
-
-                    let blocked = false;
-
-                    // Check trees
-                    for (let j = 0; j < trees.length; j++) {
-                        if (collision.SphereCollider([newX, 0, newZ], trees[j].trunk.position, 1.2)) {
-                            blocked = true;
-                            break;
-                        }
-                    }
-
-                    // Check boulders
-                    for (let j = 0; j < boulders.length; j++) {
-                        if (collision.SphereCollider([newX, 0, newZ], boulders[j].position, 1.5)) {
-                            blocked = true;
-                            break;
-                        }
-                    }
-
-                    // Only move if not blocked
-                    if (!blocked) {
-                        b.position[0] = newX;
-                        b.position[2] = newZ;
-                    }
                 }
                 b.render();
             }
