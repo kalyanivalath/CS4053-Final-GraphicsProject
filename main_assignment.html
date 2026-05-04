@@ -81,15 +81,20 @@
 <script src="Functions.js"></script>
 <script src="Classes.js"></script>
 <script src="Objects.js"></script>
+<script src="Player.js"></script>
+<script src="objLoader.js"></script>
+<script src="playerModel.js"></script>
 
 <body>
     <div id="ui">
         <div><strong>Treasure Collector</strong></div>
         <div>WASD to move</div>
         <div>C to collect coins</div>
+        <div>N to toggle day and night</div>
+        <div>F to toggle flashlight</div>
         <div id="score">Coins: 0 / 5</div>
         <div id="lives">Lives: 3</div>
-        <div id="timer">Time: 30</div>
+        <div id="timer">Time: 60</div>
     </div>
 
     <div id="startScreen">
@@ -97,9 +102,10 @@
             <h2>Treasure Collector</h2>
 
             <p>
-                You are a treasure hunter exploring a mysterious forest 🌲.<br><br>
-                Collect all the coins before time runs out ⏱️.<br>
-                Avoid poisonous bugs 🐞 or you'll lose a life!
+                You are a treasure hunter exploring a mysterious forest.<br><br>
+                Collect all the coins before time runs out.<br>
+                Avoid poisonous bugs or you'll lose a life!
+                Collect mushrooms to grow bigger and become temporarily immune to bugs!
             </p>
 
             <button id="startButton">Start Game</button>
@@ -278,6 +284,17 @@
         var collision = new CollisionDetection();
         let gameStarted = false;
 
+        let isNight = false;
+
+        let flashlightOn = false;
+        let Flashlight = new Light();
+
+        let playerScale = 0.5;
+        let playerCollisionRadius = 1.5;
+
+        let powerUpActive = false;
+        let isImmune = false;
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -305,6 +322,107 @@
         MainLight.lightAmbient = [0.55, 0.55, 0.55, 1.0];
         MainLight.lightDiffuse = [1.0, 1.0, 1.0, 1.0];
         MainLight.lightSpecular = [0.7, 0.7, 0.7, 1.0];
+
+        Flashlight.lightAmbient = [0.1, 0.1, 0.1, 1.0];
+        Flashlight.lightDiffuse = [1.0, 1.0, 0.9, 1.0];
+        Flashlight.lightSpecular = [1.0, 1.0, 1.0, 1.0];
+
+        function createSolidColorTexture(color) {
+            let texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                1,
+                1,
+                0,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                new Uint8Array(color)
+            );
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            return texture;
+        }
+
+        var MushroomTexture = CreateImageTexture(
+            "Textures/mushroom.png",
+            gl.CLAMP_TO_EDGE,
+            gl.LINEAR,
+            gl.LINEAR
+        );
+
+        function createMushroom(x, z) {
+            let mushroom = new ReflectiveShape(
+                cubeVertices,
+                cubeIndices,
+                cubeTextureCoordinates,
+                cubeNormals,
+                MushroomTexture,
+                FlatNormalMapTexture
+            );
+
+            mushroom.position = [x, -0.5, z];
+            mushroom.size = [0.8, 0.8, 0.8];
+
+            return {
+                object: mushroom,
+                active: true
+            };
+        }
+
+        function collectMushrooms() {
+            for (let i = 0; i < mushrooms.length; i++) {
+                if (!mushrooms[i].active) continue;
+
+                let hit = collision.SphereCollider(
+                    PlayerCube.position,
+                    mushrooms[i].object.position,
+                    2.0
+                );
+
+                if (hit) {
+                    mushrooms[i].active = false;
+                    applyGrowthPowerUp();
+                    console.log("Mushroom collected!");
+                }
+            }
+        }
+
+        function applyGrowthPowerUp() {
+            if (powerUpActive) return;
+
+            powerUpActive = true;
+            isImmune = true;
+
+            // grow chicken
+            playerScale = 0.9;
+            playerCollisionRadius = 2.5;
+
+            PlayerCube.size = [playerScale, playerScale, playerScale];
+
+            setTimeout(function() {
+                // back to normal
+                playerScale = 0.5;
+                playerCollisionRadius = 1.5;
+
+                PlayerCube.size = [playerScale, playerScale, playerScale];
+
+                isImmune = false;
+                powerUpActive = false;
+            }, 5000);
+        }
+
+        var mushrooms = [];
+
+        mushrooms.push(createMushroom(2, -5));
+        mushrooms.push(createMushroom(-2, 4));
 
         function createGrassTexture(gl) {
             const size = 128;
@@ -490,8 +608,8 @@
         function updateLivesUI() {
             let safeLives = Math.max(0, lives); // prevent negative
 
-            document.getElementById("lives").innerText =
-            "Lives: " + "❤️".repeat(safeLives);
+            document.getElementById("lives").innerHTML =
+                "Lives: " + "\u2764\uFE0F".repeat(safeLives);
         }
 
         updateLivesUI();
@@ -519,7 +637,7 @@
 
 
         // Start button logic
-        let timeLeft = 30; // seconds
+        let timeLeft = 60; // seconds
         let timerInterval = null;
 
         function startTimer() {
@@ -542,7 +660,7 @@
             document.getElementById("endScreen").style.display = "flex";
 
             document.getElementById("endMessage").innerText =
-                won ? "🎉 You Win!" : "⏰ Time's Up! You Lost";
+                won ? "You Win!" : "Time's Up! You Lost";
         }
 
         function resetGame() {
@@ -573,20 +691,32 @@
         Ground.bumpStrength = 0.0;
 
         // Orange block / player placeholder
-        var PlayerCube = new ReflectiveShape(
-            cubeVertices,
-            cubeIndices,
-            cubeTextureCoordinates,
-            cubeNormals,
-            OrangeTexture,
-            FlatNormalMapTexture
-        );
+        let PlayerCube = null;
 
-        PlayerCube.size = [3, 7, 3];
-        PlayerCube.position = [0.0, -0.55, 0.0];
-        PlayerCube.rotation = [0.0, 0.0, 0.0];
-        PlayerCube.blendFactor = 0.0;
-        PlayerCube.bumpStrength = 0.0;
+        async function setupPlayer() {
+            const objData = await loadOBJ("Chicken.obj");
+
+            const PlayerTexture = CreateImageTexture(
+                "Textures/Chicken_Texture.png",
+                gl.CLAMP_TO_EDGE,
+                gl.LINEAR,
+                gl.LINEAR,
+                new Uint8Array([255, 255, 255, 255])
+            );
+
+            const playerShape = new ReflectiveShape(
+                objData.vertices,
+                objData.indices,
+                objData.textureCoordinates,
+                objData.normals,
+                PlayerTexture,
+                FlatNormalMapTexture
+            );
+
+            PlayerCube = new ModelPlayer(playerShape);
+            PlayerCube.position = [0.0, -1, 6.0];
+            PlayerCube.size = [0.5, 0.5, 0.5];
+        }
 
         setPerspective(myWebGL);
 
@@ -594,36 +724,66 @@
         var playerSpeed = 0.08;
 
         window.addEventListener("keydown", function(event) {
-            keys[event.key.toLowerCase()] = true;
+            const key = event.key.toLowerCase();
+            keys[key] = true;
+
+            if (key === "n") {
+                isNight = !isNight;
+            }
+
+            if (key === "f" && isNight) {
+                flashlightOn = !flashlightOn;
+            }
         });
 
         window.addEventListener("keyup", function(event) {
             keys[event.key.toLowerCase()] = false;
         });
 
+
         function updatePlayerAndCamera() {
-            // Save old position
             let oldX = PlayerCube.position[0];
             let oldZ = PlayerCube.position[2];
 
+            let moveX = 0;
+            let moveZ = 0;
 
-            if(keys["w"]) PlayerCube.position[2] -= playerSpeed;
-            if(keys["s"]) PlayerCube.position[2] += playerSpeed;
-            if(keys["a"]) PlayerCube.position[0] -= playerSpeed;
-            if(keys["d"]) PlayerCube.position[0] += playerSpeed;
+            if(keys["w"]) moveZ -= playerSpeed;
+            if(keys["s"]) moveZ += playerSpeed;
+            if(keys["a"]) moveX -= playerSpeed;
+            if(keys["d"]) moveX += playerSpeed;
 
-            // COLLISION CHECK
+            if(moveX !== 0 || moveZ !== 0) {
+                let length = Math.sqrt(moveX * moveX + moveZ * moveZ);
+                moveX /= length;
+                moveZ /= length;
+
+                PlayerCube.position[0] += moveX * playerSpeed;
+                PlayerCube.position[2] += moveZ * playerSpeed;
+
+                // keep player inside the ground
+                // keep player inside visible ground
+                let groundLimitX = 18.0;
+                let minZ = -15.0;   // W direction
+                let maxZ = 20.0;   // S direction
+
+                PlayerCube.position[0] = Math.max(-groundLimitX, Math.min(groundLimitX, PlayerCube.position[0]));
+                PlayerCube.position[2] = Math.max(minZ, Math.min(maxZ, PlayerCube.position[2]));
+                //PlayerCube.position[2] = Math.max(-groundLimitZ, Math.min(groundLimitZ, PlayerCube.position[2]));
+
+                PlayerCube.rotation[1] = Math.atan2(moveX, moveZ);
+
+                // attach flashlight to player
+                Flashlight.lightPosition = [
+                    PlayerCube.position[0],
+                    PlayerCube.position[1] + 1.5,
+                    PlayerCube.position[2],
+                    1.0
+                ];
+            }
+
             for (let i = 0; i < trees.length; i++) {
-                let treePos = trees[i].trunk.position;
-
-                let hit = collision.SphereCollider(
-                    PlayerCube.position,
-                    treePos,
-                    1.2   // adjust this if needed
-                );
-
-                if (hit) {
-                    // revert movement
+                if (collision.SphereCollider(PlayerCube.position, trees[i].trunk.position, 1.2)) {
                     PlayerCube.position[0] = oldX;
                     PlayerCube.position[2] = oldZ;
                     break;
@@ -631,59 +791,82 @@
             }
 
             for (let i = 0; i < boulders.length; i++) {
-
-                let rockPos = boulders[i].position;
-
-                let hit = collision.SphereCollider(
-                    PlayerCube.position,
-                    rockPos,
-                    1.5   // adjust size
-                );
-
-                if (hit) {
+                if (collision.SphereCollider(PlayerCube.position, boulders[i].position, 1.5)) {
                     PlayerCube.position[0] = oldX;
                     PlayerCube.position[2] = oldZ;
                     break;
                 }
             }
 
+            // === bug collision / lose lives ===
             for (let i = 0; i < bugs.length; i++) {
-                let hitb = collision.SphereCollider(
+                let hitBug = collision.SphereCollider(
                     PlayerCube.position,
                     bugs[i].position,
-                    1.0
+                    playerCollisionRadius
                 );
 
-                if (hitb && canTakeDamage) {
+                if (hitBug && canTakeDamage && !isImmune) {
                     lives--;
                     updateLivesUI();
-                    PlayerCube.position = [0, 0, 0]; // reset
+
+                    // reset player after damage
+                    PlayerCube.position = [0.0, -0.6, 6.0];
+
                     canTakeDamage = false;
-                    setTimeout(() => {
+
+                    setTimeout(function() {
                         canTakeDamage = true;
-                    }, 1000); // prevent taking damage too frequently
+                    }, 1000);
+
+                    if (lives <= 0) {
+                        endGame(false);
+                    }
+
+                    break;
                 }
             }
 
-
-            // Camera follows behind and above the cube
             MainCamera.position[0] = PlayerCube.position[0];
             MainCamera.position[1] = PlayerCube.position[1] + 2.0;
-            MainCamera.position[2] = PlayerCube.position[2] + 5.0;
+            MainCamera.position[2] = PlayerCube.position[2] + 12.0;
 
-            // Camera looks toward the cube
             if(MainCamera.lookAt) {
                 MainCamera.lookAt([
                     PlayerCube.position[0],
-                    PlayerCube.position[1],
-                    PlayerCube.position[2]
+                    PlayerCube.position[1] + 1.0,
+                    PlayerCube.position[2] - 2.0
                 ]);
             }
         }
 
-        
+
+        function updateDayNightMode() {
+            if (isNight) {
+                // night sky
+                gl.clearColor(0.03, 0.04, 0.12, 1.0);
+
+                // dimmer light
+                MainLight.lightAmbient = [0.12, 0.12, 0.22, 1.0];
+                MainLight.lightDiffuse = [0.25, 0.25, 0.45, 1.0];
+                MainLight.lightSpecular = [0.3, 0.3, 0.5, 1.0];
+            } else {
+                // day sky
+                gl.clearColor(0.5, 0.7, 1.0, 1.0);
+
+                // brighter sunlight
+                MainLight.lightAmbient = [0.55, 0.55, 0.55, 1.0];
+                MainLight.lightDiffuse = [1.0, 1.0, 1.0, 1.0];
+                MainLight.lightSpecular = [0.7, 0.7, 0.7, 1.0];
+            }
+        }
+
+
 
         function animate() {
+
+            updateDayNightMode();
+
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             /*
             if (!gameStarted) {
@@ -698,12 +881,19 @@
             if (gameStarted) {
                 updatePlayerAndCamera();
                 collectCoins();
+                collectMushrooms();
             }
             
             MainCamera.render();
 
-            for(var i = 0; i < Lights.length; i++) {
-                Lights[i].render(i, Lights.length);
+            let activeLights = [MainLight];
+
+            if (isNight && flashlightOn) {
+                activeLights.push(Flashlight);
+            }
+
+            for (let i = 0; i < activeLights.length; i++) {
+                activeLights[i].render(i, activeLights.length);
             }
 
             for (let i = 0; i < coins.length; i++) {
@@ -720,6 +910,12 @@
 
             for (let i = 0; i < boulders.length; i++) {
                 boulders[i].render();
+            }
+
+            for (let i = 0; i < mushrooms.length; i++) {
+                if (mushrooms[i].active) {
+                    mushrooms[i].object.render();
+                }
             }
 
             for (let i = 0; i < bugs.length; i++) {
@@ -764,15 +960,18 @@
                 b.render();
             }
 
-            PlayerCube.render();
             Ground.render();
+            PlayerCube.render();
+            
             
             
 
             window.requestAnimationFrame(animate);
         }
 
-        animate();
+        setupPlayer().then(function() {
+    animate();
+});
     </script>
 </body>
 </html>
