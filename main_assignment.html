@@ -92,9 +92,9 @@
         <div>C to collect coins</div>
         <div>N to toggle day and night</div>
         <div>F to toggle flashlight</div>
-        <div id="score">Coins: 0 / 5</div>
+        <div id="score">Coins: 0 / 10</div>
         <div id="lives">Lives: 3</div>
-        <div id="timer">Time: 60</div>
+        <div id="timer">Time: 120</div>
     </div>
 
     <div id="startScreen">
@@ -103,8 +103,8 @@
 
             <p>
                 You are a treasure hunter exploring a mysterious forest.<br><br>
-                Collect all the coins before time runs out.<br>
-                Avoid poisonous bugs or you'll lose a life!
+                Collect all the coins before time runs out.<br><br>
+                Avoid poisonous bugs or you'll lose a life! <br><br>
                 Collect mushrooms to grow bigger and become temporarily immune to bugs!
             </p>
 
@@ -519,9 +519,9 @@
         var coins = [];
         
 
-        for (let i = 0; i < 5; i++) {
-            let x = Math.random() * 20 - 10;
-            let z = Math.random() * 20 - 10;
+        for (let i = 0; i < 10; i++) {
+            let x = Math.random() * 30 - 15;
+            let z = Math.random() * 30 - 15;
 
             
             coins.push({
@@ -653,7 +653,7 @@
 
 
         // Start button logic
-        let timeLeft = 60; // seconds
+        let timeLeft = 120; // seconds
         let timerInterval = null;
 
         function startTimer() {
